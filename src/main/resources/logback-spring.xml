@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration debug="true">
+    <conversionRule conversionWord="clr" converterClass="org.springframework.boot.logging.logback.ColorConverter" />
+    <conversionRule conversionWord="wex" converterClass="org.springframework.boot.logging.logback.WhitespaceThrowableProxyConverter" />
+
+    <property resource="application.properties" />
+    <!-- <springProperty name="fname" source="${logging.file.name}" /> -->
+
+
+    <appender name="MyConsole" class="ch.qos.logback.core.ConsoleAppender">
+        <withJansi>true</withJansi>
+        <encoder>
+            <pattern>
+%clr(%d{yyyy-MM-dd hh:mm:ss.SSS}){yellow} %highlight(%level) %clr(%logger{100}.%M){blue} %clr(%m%n%wex){green}
+            </pattern>
+        </encoder>
+    </appender>
+
+    <appender name="RollingFile" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <!-- <file>${logging.file.path}/app.log</file> -->
+
+        <!-- rollover daily and when the file reaches maxFileSize MegaBytes -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${logging.file.path}/archived/${spring.profiles.active}_container/app-%d{yyyy-MM-dd}_%i.log</fileNamePattern>
+            <!-- each archived file, size max 10MB -->
+            <maxFileSize>${logging.file.max-size}</maxFileSize>
+            <!-- total size of all archive files, if total size > 20GB,
+                it will delete old archived file -->
+            <totalSizeCap>${logging.file.total-size-cap}</totalSizeCap>
+            <!-- days to keep -->
+            <maxHistory>${logging.file.max-history}</maxHistory>
+        </rollingPolicy>
+
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>${logging.pattern.file}</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="LocalRollingFile" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${logging.file.path}/archived/local_mode/app-%d{yyyy-MM-dd}_%i.log</fileNamePattern>
+            <maxFileSize>30KB</maxFileSize>
+            <totalSizeCap>150KB</totalSizeCap>
+            <maxHistory>2</maxHistory>
+        </rollingPolicy>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>${logging.pattern.file}</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="GELF" class="de.siegmar.logbackgelf.GelfUdpAppender">
+        <graylogHost>62.171.190.169</graylogHost>
+        <graylogPort>12201</graylogPort>
+        <maxChunkSize>508</maxChunkSize>
+        <useCompression>true</useCompression>
+        <messageIdSupplier class="de.siegmar.logbackgelf.MessageIdSupplier"/>
+        <encoder class="de.siegmar.logbackgelf.GelfEncoder">
+            <originHost>localhost</originHost>
+            <includeRawMessage>false</includeRawMessage>
+            <includeMarker>true</includeMarker>
+            <includeMdcData>true</includeMdcData>
+            <includeCallerData>false</includeCallerData>
+            <includeRootCauseData>false</includeRootCauseData>
+            <includeLevelName>false</includeLevelName>
+            <shortPatternLayout class="ch.qos.logback.classic.PatternLayout">
+                <pattern>%m%nopex</pattern>
+            </shortPatternLayout>
+            <fullPatternLayout class="ch.qos.logback.classic.PatternLayout">
+                <pattern>%m%n</pattern>
+            </fullPatternLayout>
+            <numbersAsString>false</numbersAsString>
+<!--            <staticField>app_name:backend</staticField>-->
+<!--            <staticField>os_arch:${os.arch}</staticField>-->
+<!--            <staticField>os_name:${os.name}</staticField>-->
+<!--            <staticField>os_version:${os.version}</staticField>-->
+            <!-- <staticField>environment:${environment}</staticField> -->
+             <staticField>STAGE:${STAGE}</staticField>
+<!--             <staticField>environment:${spring.profiles.active}</staticField>-->
+        </encoder>
+    </appender>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender"> 
+        <layout>
+            <Pattern>%X{adminuser_name} %X{user_role} - %m%n</Pattern>
+        </layout> 
+    </appender>
+
+
+    <springProfile name="local">
+        <property resource="application-logginglevels.properties"/>
+        <!-- <root level="TRACE">
+            <appender-ref ref="CONSOLE"/>
+        </root> -->
+        <root level="TRACE">
+            <appender-ref ref="MyConsole"/>
+        </root>
+        <logger name="de.zulassungsdienst.express" level="DEBUG" additivity="true">
+            <appender-ref ref="LocalRollingFile" />
+        </logger>
+        <!-- <logger name="de.zulassungsdienst.express" level="INFO" additivity="true">
+            <appender-ref ref="GELF" />
+        </logger> -->
+        <logger name="de.zulassungsdienst.express.app.security.vaadin_security.CustomRequestCache" level="WARN"/>
+    </springProfile>
+
+    <springProfile name="dev, prod">
+        <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+        <root level="${logging.level.root}">
+            <appender-ref ref="RollingFile"/>
+            <appender-ref ref="GELF" />
+        </root>
+    </springProfile>
+
+</configuration>
+
+<!--
+
+patten-examples======================================
+%d{mm:ss.SSS} %magenta([%thread]) %highlight(%-5level) %cyan(%logger{15}.%M) - %msg%n
+%d{dd-MM-yyyy HH:mm:ss.SSS} %magenta([%thread]) %highlight(%-5level) %logger.%M - %msg%n
+%d{dd-MM-yyyy HH:mm:ss.SSS} [%thread] %-5level %logger{36}.%M - %msg%n
+%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n
+%-4relative [%thread] %-5level %logger{35} - %msg%n
+
+property-examples======================================
+<property name="CONSOLE_LOG_PATTERN" value="%clr(%d{mm:ss.SSS}){faint} %clr(%5p) %clr(${PID:- }){magenta} %clr(==){faint} %clr([%15.15t]){faint} %clr(%C){cyan} %clr(:){faint} %m%n%wex"/>
+
+<property name="LOG_FILE" value="${LOG_FILE:-${LOG_PATH:-${LOG_TEMP:-${java.io.tmpdir:-/tmp}}/}spring.log}"/>
+
+<property name="LOGS" value="./logs" />
+
+color-examples======================================
+ColorConverter.java
+static {
+		Map<String, AnsiElement> ansiElements = new HashMap<>();
+		ansiElements.put("faint", AnsiStyle.FAINT);
+		ansiElements.put("red", AnsiColor.RED);
+		ansiElements.put("green", AnsiColor.GREEN);
+		ansiElements.put("yellow", AnsiColor.YELLOW);
+		ansiElements.put("blue", AnsiColor.BLUE);
+		ansiElements.put("magenta", AnsiColor.MAGENTA);
+		ansiElements.put("cyan", AnsiColor.CYAN);
+		ELEMENTS = Collections.unmodifiableMap(ansiElements);
+}
+
+Grouping by parentheses as explained above allows coloring of sub-patterns. As of version 1.0.5, PatternLayout recognizes "%black", "%red", "%green","%yellow","%blue", "%magenta","%cyan", "%white", "%gray", "%boldRed","%boldGreen", "%boldYellow", "%boldBlue", "%boldMagenta", "%boldCyan", "%boldWhite" and "%highlight" as conversion words
+
+format-examples======================================
+%logger{36} – the name of the logger, truncated to 35 characters
+
+The following files are provided under org/springframework/boot/logging/logback/:
+
+    defaults.xml
+    Provides conversion rules, pattern properties and common logger configurations.
+
+    console-appender.xml
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+    Adds a ConsoleAppender using the CONSOLE_LOG_PATTERN.
+
+    file-appender.xml
+    <include resource="org/springframework/boot/logging/logback/file-appender.xml" />
+    Adds a RollingFileAppender using the FILE_LOG_PATTERN and ROLLING_FILE_NAME_PATTERN with appropriate settings.
+
+logger-examples======================================
+LOG "com.example.packageORclass" at TRACE level
+
+<logger name="com.example.packageORclass" additivity="false" level="debug">
+    <appender-ref ref="STDOUT" />
+</logger>
+
+level-examples======================================
+LOG everything at INFO level
+
+<root level="INFO">
+    <appender-ref ref="CONSOLE" />
+    <appender-ref ref="FILE" />
+    <appender-ref ref="STDOUT" />
+</root>
+
+fileName-examples======================================
+index i is always 0
+<fileNamePattern>
+    ${logging.file.path}/archived/app-%d{yyyy-MM-dd_HH-mm}_%i.log
+</fileNamePattern>
+
+-->
